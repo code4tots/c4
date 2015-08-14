@@ -1,0 +1,5 @@
+#!/bin/bash
+python c4.py > sample.c && \
+gcc -Wall -Werror -Wpedantic sample.c && \
+./a.out && \
+rm sample.c a.out
