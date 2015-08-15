@@ -469,6 +469,6 @@ print(Parse(r"""
 ;i 'stdio.h'
 
 ;f main(argc int, argv **char) int {
-  printf("hi world! %d\n", 5++);
+  printf("hi world! %d\n", 5);
 }
 """).all().all)
