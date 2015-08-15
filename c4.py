@@ -182,6 +182,17 @@ class Parse(object):
   def statement(self):
     if self.consume(';i'):
       return self.ast(Include, self.expect('char').value)
+    elif self.consume(';v'):
+      decls = []
+      while not self.consume(';'):
+        name = self.ast(Id, self.expect('id').value)
+        type_ = self.type_expression()
+        value = None
+        if self.consume('='):
+          value = self.expression()
+        decls.append(self.ast(VariableDeclaration, name, type_, value))
+        self.consume(',')
+      return self.ast(StatementSequence, tuple(decls))
     elif self.consume(';f'):
       name = self.ast(Id, self.expect('id').value)
       type_ = self.type_expression()
@@ -212,7 +223,7 @@ class Parse(object):
       argnames = []
       argtypes = []
       while not self.consume(')'):
-        argnames.append(self.ast(Id, self.gettok().value))
+        argnames.append(self.ast(Id, self.expect('id').value))
         argtypes.append(self.type_expression())
         self.consume(',')
       returns = self.type_expression()
@@ -537,7 +548,9 @@ class BinaryOperation(Expression):
     return '(%s%s%s)' % (self.lhs.str, self.op, self.rhs.str)
 
 class Statement(Ast):
-  pass
+  def forward(self, depth):
+    return ''
+
 
 class Include(Statement):
 
@@ -557,6 +570,34 @@ class Include(Statement):
   def implementation(self):
     return ''
 
+class StatementSequence(Statement):
+  """A sequence of statements, but not grouped like in a block."""
+
+  def __init__(self, stmts, *args):
+    super(StatementSequence, self).__init__(*args)
+    self.stmts = stmts
+
+  def forward(self, depth):
+    return ''.join(stmt.forward(depth) for stmt in self.stmts)
+
+  def str(self, depth):
+    return ''.join(stmt.str(depth) for stmt in self.stmts)
+
+class VariableDeclaration(Statement):
+
+  def __init__(self, name, type_, value, *args):
+    super(VariableDeclaration, self).__init__(*args)
+    self.name = name
+    self.type = type_
+    self.value = value
+
+  def forward(self, depth):
+    return '\t' * depth + self.type.declare(self.name.str) + ';\n'
+
+  def str(self, depth):
+    return '\t' * depth + ('' if self.value is None else '%s = %s;\n' % (
+        self.name.str, self.value.str))
+
 class ExpressionStatement(Statement):
 
   def __init__(self, expr, *args):
@@ -573,8 +614,9 @@ class Block(Statement):
     self.stmts = stmts
 
   def str(self, depth):
-    return '%s{\n%s}\n' % (
+    return '%s{\n%s%s}\n' % (
         '\t' * depth,
+        ''.join(stmt.forward(depth+1) for stmt in self.stmts),
         ''.join(stmt.str(depth+1) for stmt in self.stmts))
 
 class FunctionDefinition(Statement):
@@ -601,8 +643,15 @@ print(Parse(r"""
 ;i 'stdio.h'
 
 ;f main(argc int, argv **char) int {
+  ;v x int = 10;
   printf("hi world! %d\n", 5 + 12);
   printf("sizeof(int) = %lu\n", sizeof(int));
   printf("sizeof(long) = %lu\n", sizeof(long));
+  printf("sizeof(*void) = %lu\n", sizeof(*void));
+
+  printf("x = %d\n", x);
+  printf("x = %d\n", x++);
+  printf("x = %d\n", x);
+  printf("x = %d\n", ++x);
 }
 """).all().all)
