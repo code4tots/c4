@@ -1,4 +1,7 @@
-STRING_STARTER = ('r"', '"', "r'", "'")
+import collections
+
+CHAR_STARTER = ("r'", "'")
+STRING_STARTER = ('r"', '"')
 SYMBOLS = tuple(reversed(sorted([
     # special symbols
     ';f', ';i', ';s', ';v',
@@ -10,403 +13,462 @@ SYMBOLS = tuple(reversed(sorted([
     '==', '!=',
     '&', '^', '|', '&&', '||',
     '=', '+=', '-=', '*=', '/=', '%=',
-    '<<=', '>>=', '&=', '^=', '|='
+    '<<=', '>>=', '&=', '^=', '|=',
     # delimiters
     '[', ']', '(', ')', '{', '}',
-    ';', ',', '.', '->', '~', '?', ':',
+    ';', ',', '.', '->', '~', '?', ':', '!',
 ])))
 ID_CHARS = frozenset('abcdefghijklmnopqrstuvwxyz'
                      'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
                      '0123456789_')
+KEYWORDS = frozenset([
+    'auto', 'break', 'case', 'const', 'continue', 'default',
+    'do', 'else', 'enum', 'extern', 'for', 'goto', 'if',
+    'register', 'return', 'signed', 'sizeof',
+    'static', 'struct', 'switch', 'typedef', 'union', 'unsigned',
+    'volatile', 'while',
+])
 
-def lex(s):
-    tokens = []
-    i = 0
-    while True:
-        # Skip spaces and comments.
-        while i < len(s) and (s[i].isspace() or s[i] == '#'):
-            if s[i] == '#':
-                while i < len(s) and s[i] != '\n':
-                    i += 1
-            else:
-                i += 1
+Token = collections.namedtuple('Token', 'type value')
 
-        # Check for eof
-        if i >= len(s):
-            break
+class Parse(object):
 
-        # Mark the start of this new token.
-        j = i
+  def __init__(self, string, source='<unknown>'):
+    self.s = string
+    self.src = source
+    self.j = 0
+    self.i = 0
+    self.peek = self.nexttok()
 
-        # Lex string literals
-        if s.startswith(STRING_STARTER, i):
-            raw = False
-            if s[i] == 'r':
-                raw = True
-                i += 1
-            quote = s[i:i+3] if s.startswith(('"""', "'''"), i) else s[i]
-            i += len(quote)
-            while not s.startswith(quote, i):
-                if i >= len(s):
-                    raise SyntaxError("close your quotes!")
-                i += 2 if raw and s[i] == '\\' else 1
-            i += len(quote)
-            tokens.append(s[j:i])
-            continue
+  ## Error handling.
 
-        # Lex symbols
-        symbol_found = False
-        for symbol in SYMBOLS:
-            if s.startswith(symbol, i):
-                tokens.append(symbol)
-                i += len(symbol)
-                symbol_found = True
-                break
-        if symbol_found:
-            continue
+  @property
+  def lineno(self):
+    return self.s.count('\n', 0, self.j) + 1
 
-        # Lex id
-        if s[i].isdigit() or (s[i] == '.' and s[i+1:i+2].isdigit()):
-            j = i
-            while i < len(s) and s[i].isdigit():
-                i += 1
-            if s.startswith('.', i):
-                i += 1
-                while i < len(s) and s[i].isdigit():
-                    i += 1
-                tokens.append(float(s[j:i]))
-            else:
-                tokens.append(int(s[j:i]))
-            continue
+  @property
+  def colno(self):
+    return self.j - self.s.rfind('\n', 0, self.j)
 
-        # Identifier
-        if s[i] in ID_CHARS:
-            while i < len(s) and s[i] in ID_CHARS:
-                i += 1
-            tokens.append(s[j:i])
-            continue
+  @property
+  def line(self):
+    start = self.s.rfind('\n', 0, self.j) + 1
+    end = self.s.find('\n', self.j)
+    end = len(self.s) if end == -1 else end
+    return self.s[start:end]
 
-        # Unrecognized token.
-        while i < len(s) and not s[i].isspace():
-            i += 1
-        raise SyntaxError(s[j:i])
+  @property
+  def location_message(self):
+    return 'From %s, on line %s\n%s\n%s*\n' % (
+        self.src, self.lineno,
+        self.line,
+        ' ' * (self.colno-1))
 
-    return tuple(tokens)
+  def error(self, message):
+    return SyntaxError(self.location_message + message + '\n')
 
-def parse(s):
-    tokens = lex(s)
-    i = [0]
+  def raise_error(self, message):
+    return self.error(message)
 
-    def error(*args, **kwargs):
-        raise SyntaxError(*args, **kwargs)
+  ## Lex
 
-    def done():
-        return i[0] >= len(tokens)
+  def done(self):
+    return self.j >= len(self.s)
 
-    def peek():
-        return tokens[i[0]] if i[0] < len(tokens) else ''
+  @property
+  def char(self):
+    return self.s[self.i] if self.i < len(self.s) else ''
 
-    def atstr():
-        return isinstance(peek(), str) and peek().startswith(STRING_STARTER)
+  def skipspaces(self):
+    while not self.done() and self.char.isspace() or self.char == '#':
+      if self.char == '#':
+        while not self.done() and self.char != '\n':
+          self.i += 1
+      else:
+        self.i += 1
+    self.j = self.i
 
-    def atid():
-        return (not done() and
-                isinstance(peek(), str) and
-                all(c in ID_CHARS for c in peek()))
+  def nexttok(self):
+    self.skipspaces()
 
-    def at(tok):
-        return (atid()                  if tok == 'id'            else
-                at((tok,))              if isinstance(tok, str)   else
-                peek() in tok           if isinstance(tok, tuple) else
-                atstr()                 if tok == str             else
-                isinstance(peek(), tok) if tok in (int, float)    else
-                error(tok))
+    self.j = self.i
 
-    def gettok():
-        tok = peek()
-        i[0] += 1
-        return tok
+    if self.done():
+      return Token('eof', 'eof')
 
-    def consume(tok):
-        if at(tok):
-            return gettok()
+    # String literal
+    if self.s.startswith(STRING_STARTER+CHAR_STARTER, self.i):
+      type_ = 'str' if self.s.startswith(STRING_STARTER, self.i) else 'char'
+      raw = False
+      if self.char == 'r':
+        raw = True
+        self.i += 1
+      quote = (self.s[self.i:self.i+3] if
+               self.s.startswith(('"""', "'''"), self.i) else
+               self.char)
+      self.i += len(quote)
+      while not self.s.startswith(quote, self.i):
+        if self.i >= len(self.s):
+          raise self.error("Finish your quotes!")
+        self.i += 2 if raw and self.char == '\\' else 1
+      self.i += len(quote)
+      return Token(type_, eval(self.s[self.j:self.i]))
 
-    def expect(tok):
-        if not at(tok):
-            raise SyntaxError((tok, peek()))
-        return gettok()
+    # Symbol
+    symbol_found = False
+    for symbol in SYMBOLS:
+      if self.s.startswith(symbol, self.i):
+        self.i += len(symbol)
+        symbol_found = True
+        return Token(symbol, symbol)
 
-    # The three major constructs we will have are
-    # statements, expressions and type expressions.
+    # int/float
+    if (self.char.isdigit() or (self.char == '.' and
+                                     self.s[self.i+1:self.i+2].isdigit())):
+      self.j = self.i
+      while self.i < len(self.s) and self.char.isdigit():
+        self.i += 1
+      if self.s.startswith('.', self.i):
+        self.i += 1
+        while self.i < len(self.s) and self.char.isdigit():
+          self.i += 1
+        return Token('float', float(self.s[self.j:self.i]))
+      else:
+        return Token('int', int(self.s[self.j:self.i]))
 
-    def statement():
-        if consume(';f'):
-            name = expect('id')
-            type_ = type_expression()
-            body = statement()
-            return (';f', name, type_, body)
-        elif consume(';s'):
-            name = expect('id')
-            body = statement()
-            return (';s', name, body)
-        elif consume(';i'):
-            return (';i', eval(expect(str)))
-        elif consume(';v'):
-            triples = []
-            while not consume(';'):
-                name = expect('id')
-                type_ = type_expression()
-                value = None
-                if consume('='):
-                    value = expression()
-                triples.append((name, type_, value))
-            if triples:
-                return (';v', tuple(triples))
-            else:
-                return (';',)
-        elif consume('return'):
-            expr = expression()
-            expect(';')
-            return ('return', expr)
-        elif consume('{'):
-            stmts = []
-            while not consume('}'):
-                stmts.append(statement())
-            return ('{}', tuple(stmts))
-        elif consume(';'):
-            return (';',)
-        else:
-            expr = expression()
-            expect(';')
-            return (';e', expr)
+    # Identifier
+    if self.char in ID_CHARS:
+      while self.i < len(self.s) and self.char in ID_CHARS:
+        self.i += 1
+      val = self.s[self.j:self.i]
+      return Token(val if val in KEYWORDS else 'id', val)
 
-    def expression():
-        return expression14()
+    # Unrecognized token.
+    while self.i < len(self.s) and not self.char.isspace():
+      self.i += 1
 
-    def type_expression():
-        if consume('*'):
-            return ('*', type_expression())
-        elif at('id'):
-            return ('id', gettok())
-        elif consume('('):
-            args = []
-            while not consume(')'):
-                name = expect('id')
-                type_ = type_expression()
-                args.append((name, type_))
-                consume(',')
-            returns = type_expression()
-            return (';f', tuple(args), returns)
-        elif consume('['):
-            if consume(']'):
-                return ('[]', type_expression(), '')
-            else:
-                d = expect(int)
-                return ('[]', type_expression(), d)
-        else:
-            error(peek())
+    raise self.error("I don't know what this token is.")
 
-    # Expression parsing is a bit more complicated, so they
-    # are split into phases here.
+  def gettok(self):
+    tok = self.peek
+    self.peek = self.nexttok()
+    return tok
 
-    def expression00():
-        if consume('('):
-            expr = expression()
-            expect(')')
-            return expr
-        elif at(int):
-            return ('int', gettok())
-        elif at(float):
-            return ('float', gettok())
-        elif at(str):
-            return ('str', eval(gettok()))
-        elif at('id'):
-            return ('id', gettok())
-        else:
-            error(peek())
+  def at(self, *toktype):
+    return self.peek.type in toktype
 
-    def expression01():
-        expr = expression00()
-        while True:
-            if at(('++', '--')):
-                expr = ('.' + gettok(), expr)
-            elif consume('('):
-                args = []
-                while not consume(')'):
-                    args.append(expression())
-                    consume(',')
-                expr = ('.()', expr, tuple(args))
-            elif consume('.'):
-                expr = ('.', expr, expect('id'))
-            else:
-                break
-        return expr
+  def consume(self, *toktype):
+    if self.at(*toktype):
+      return self.gettok()
 
-    def expression04():
-        expr = expression01()
-        while at(('+', '-')):
-            op = gettok()
-            rhs = expression01()
-            expr = (op, expr, rhs)
-        return expr
+  def expect(self, *toktype):
+    if not self.at(*toktype):
+      raise self.error('Expected %s but found %s' %
+                       (toktype, self.peek.type))
+    return self.gettok()
 
-    def expression14():
-        expr = expression04()
-        if at(('=', '+=', '-=', '*=', '/=', '%=',
-               '<<=', '>>=', '&=', '^=', '|=')):
-            op = gettok()
-            rhs = expression14()
-            return (op, expr, rhs)
-        return expr
+  ## parse
 
+  def ast(self, astcls, *args):
+    return astcls(*(args + (self.s, self.src, self.j)))
+
+  def all(self):
     stmts = []
-    while not done():
-        stmts.append(statement())
-    return tuple(stmts)
+    while not self.done():
+      stmts.append(self.statement())
+    return self.ast(TranslationUnit, tuple(stmts))
 
-class CodeGenerator(object):
+  def statement(self):
+    if self.consume(';i'):
+      return self.ast(Include, self.expect('char').value)
+    elif self.consume(';f'):
+      name = self.ast(Id, self.expect('id').value)
+      type_ = self.type_expression()
+      body = self.statement()
+      return self.ast(FunctionDefinition, name, type_, body)
+    elif self.consume('{'):
+      stmts = []
+      while not self.consume('}'):
+        stmts.append(self.statement())
+      return self.ast(Block, tuple(stmts))
+    else:
+      expr = self.expression()
+      self.expect(';')
+      return self.ast(ExpressionStatement, expr)
 
-    def __init__(self, string):
-        self.stmts = parse(string)
+  def type_expression(self):
+    if self.at('id'):
+      return self.ast(TypeId, self.expect('id').value)
+    elif self.consume('*'):
+      return self.ast(PointerType, self.type_expression())
+    elif self.consume('['):
+      index = ''
+      if self.at('int'):
+        index = self.gettok().value
+      self.expect(']')
+      return self.ast(ArrayType, self.type_expression(), index)
+    elif self.consume('('):
+      argnames = []
+      argtypes = []
+      while not self.consume(')'):
+        argnames.append(self.ast(Id, self.gettok().value))
+        argtypes.append(self.type_expression())
+        self.consume(',')
+      returns = self.type_expression()
+      return self.ast(FunctionType, tuple(argnames), tuple(argtypes), returns)
+    else:
+      raise self.error('Expected type expression')
 
-    def all(self):
-        return (self.generate_forward_declarations(self.stmts) +
-                self.generate_headers(self.stmts) +
-                self.generate_implementations(self.stmts))
+  def expression(self):
+    return self.expression01()
 
-    def generate_forward_declarations(self, stmts):
-        return ''.join(self.generate_forward_declaration(stmt)
-                       for stmt in stmts)
+  def expression00(self):
+    if self.at('int'):
+      return self.ast(Int, self.expect('int').value)
+    elif self.at('float'):
+      return self.ast(Float, self.expect('float').value)
+    elif self.at('str'):
+      return self.ast(Str, self.expect('str').value)
+    elif self.at('char'):
+      return self.ast(Char, self.expect('char').value)
+    elif self.at('id'):
+      return self.ast(Id, self.expect('id').value)
+    elif self.at('('):
+      expr = self.expression()
+      self.expect(')')
+      return expr
+    else:
+      raise self.error('Expected expression')
 
-    def generate_headers(self, stmts):
-        return ''.join(self.generate_header(stmt) for stmt in stmts)
+  def expression01(self):
+    expr = self.expression00()
+    while True:
+      if self.consume('('):
+        args = []
+        while not self.consume(')'):
+          args.append(self.expression())
+          self.consume(',')
+        expr = self.ast(FunctionCall, expr, tuple(args))
+      elif self.consume('['):
+        index = self.expression()
+        self.expect(']')
+        expr = self.ast(Subscript, expr, index)
+      elif self.at('++', '--'):
+        expr = self.ast(PostfixOperation, expr, self.gettok().value)
+      elif self.at('.', '->'):
+        op = self.gettok().value
+        op += self.expect('id').value
+        expr = self.ast(PostfixOperation, expr, op)
+      else:
+        break
+    return expr
 
-    def generate_implementations(self, stmts):
-        return ''.join(self.generate_implementation(stmt) for stmt in stmts)
+class Ast(object):
+  def __init__(self, string, source, location):
+    self.string = string
+    self.source = source
+    self.location = location
 
-    def generate_forward_declaration(self, stmt):
-        if stmt[0] == ';s':
-            return 'typedef struct %s %s;\n' % ((stmt[1],) * 2)
-        elif stmt[0] in (';f', ';v', ';i'):
-            return ''
-        else:
-            raise ValueError(stmt)
+class TranslationUnit(Ast):
 
-    def generate_header(self, stmt):
-        if stmt[0] == ';f':
-            _, name, type_, _ = stmt
-            return self.declare_variable(type_, name) + ';\n'
-        elif stmt[0] == ';s':
-            _, name, body = stmt
-            return 'struct %s %s;\n' % (name, self.generate_statement(body))
-        elif stmt[0] == ';v':
-            hdr = ''
-            for name, type_, _ in stmt[1]:
-                hdr += 'extern ' + self.declare_variable(type_, name) + ';\n'
-            return hdr
-        elif stmt[0] == ';i':
-            return '#include <%s>\n' % stmt[1]
-        else:
-            raise ValueError(stmt)
+  def __init__(self, stmts, *args):
+    super(TranslationUnit, self).__init__(*args)
+    self.stmts = stmts
 
-    def generate_implementation(self, stmt):
-        if stmt[0] == ';f':
-            _, name, type_, body = stmt
-            return '%s %s' % (self.declare_variable(type_, name),
-                              self.generate_statement(body))
-        elif stmt[0] == ';v':
-            imp = ''
-            for name, type_, value in stmt[1]:
-                imp += self.declare_variable(type_, name)
-                if value:
-                    imp += ' = ' + self.generate_expression(value)
-                imp += ';\n'
-            return imp
-        elif stmt[0] in (';s', ';i'):
-            return ''
-        else:
-            raise ValueError()
+  @property
+  def forward_declarations(self):
+    return ''.join(stmt.forward_declaration for stmt in self.stmts)
 
-    def declare_variable(self, type_, declarator):
-        if type_[0] == ';f':
-            _, args, returns = type_
-            declarator += '('
-            first = True
-            for argname, argtype in args:
-                if not first:
-                    declarator += ', '
-                first = False
-                declarator += self.declare_variable(argtype, argname)
-            declarator += ')'
-            return self.declare_variable(returns, '('+declarator+')')
-        elif type_[0] == '*':
-            return self.declare_variable(type_[1], '(*'+declarator+')')
-        elif type_[0] == 'id':
-            return '%s %s' % (type_[1], declarator)
-        elif type_[0] == '[]':
-            _, inner_type, index = type_
-            return self.declare_variable(inner_type,
-                                         '(%s[%s])' % (declarator, index))
-        else:
-            raise ValueError(type_)
+  @property
+  def declarations(self):
+    return ''.join(stmt.declaration for stmt in self.stmts)
 
-    def generate_statement(self, stmt):
-        if stmt[0] == '{}':
-            _, stmts = stmt
-            return '{%s}' % ''.join(self.generate_statement(s) for s in stmts)
-        elif stmt[0] == ';e':
-            return self.generate_expression(stmt[1]) + ';'
-        elif stmt[0] == ';v':
-            return self.generate_implementation(stmt)
-        elif stmt[0] == 'return':
-            return 'return %s;' % self.generate_expression(stmt[1])
-        else:
-            raise ValueError(stmt)
+  @property
+  def implementations(self):
+    return ''.join(stmt.implementation for stmt in self.stmts)
 
-    def generate_expression(self, expr):
-        if expr[0] == 'id':
-            return expr[1]
-        elif expr[0] in ('int', 'float'):
-            return str(expr[1])
-        elif expr[0] == 'str':
-            return '"%s"' % ''.join('\\x%02x' % ord(c) for c in expr[1])
-        elif expr[0] == '.()':
-            _, f, args = expr
-            return '(%s(%s))' % (self.generate_expression(f),
-                                 ','.join(self.generate_expression(arg)
-                                          for arg in args))
-        elif expr[0] == '.':
-            _, e, attr = expr
-            return '(%s.%s)' % (self.generate_expression(e), attr)
-        elif expr[0] in ('*', '/', '%',
-                         '+', '-',
-                         '<<', '>>',
-                         '<', '<=', '>', '>=',
-                         '==', '!=',
-                         '&', '^', '|', '&&', '||',
-                         '=', '+=', '-=', '*=', '/=', '%=',
-                         '<<=', '>>=', '&=', '^=', '|='):
-            op, lhs, rhs = expr
-            return '(%s%s%s)' % (self.generate_expression(lhs), op,
-                                 self.generate_expression(rhs))
-        else:
-            raise ValueError(expr)
+  @property
+  def all(self):
+    return (self.forward_declarations +
+            self.declarations + self.implementations)
 
-print(CodeGenerator(r"""
+class Type(Ast):
+  pass
+
+class TypeId(Type):
+
+  def __init__(self, val, *args):
+    super(TypeId, self).__init__(*args)
+    self.val = val
+
+  def declare(self, declarator):
+    return '%s %s' % (self.val, declarator)
+
+class PointerType(Type):
+
+  def __init__(self, pointee, *args):
+    super(PointerType, self).__init__(*args)
+    self.pointee = pointee
+
+  def declare(self, declarator):
+    return self.pointee.declare('(*' + declarator + ')')
+
+class ArrayType(Type):
+
+  def __init__(self, target, index, *args):
+    super(ArrayType, self).__init__(*args)
+    self.target = target
+    self.index = index
+
+class FunctionType(Type):
+
+  def __init__(self, argnames, argtypes, returns, *args):
+    super(FunctionType, self).__init__(*args)
+    self.argnames = argnames
+    self.argtypes = argtypes
+    self.returns = returns
+
+  def declare(self, declarator):
+    declarator += '('
+    first = True
+    for name, type_ in zip(self.argnames, self.argtypes):
+      if not first:
+        declarator += ', '
+      first = False
+      declarator += type_.declare(name.str)
+    declarator += ')'
+    return self.returns.declare(declarator)
+
+class Expression(Ast):
+  pass
+
+class Int(Expression):
+
+  def __init__(self, val, *args):
+    super(Int, self).__init__(*args)
+    self.val = val
+
+  @property
+  def str(self):
+    return str(self.val)
+
+class Char(Expression):
+
+  def __init__(self, val, *args):
+    super(Char, self).__init__(*args)
+    self.val = val
+
+  @property
+  def str(self):
+    return "'%s'" % ''.join('\\x%02x' % ord(c) for c in self.val)
+
+class Str(Expression):
+
+  def __init__(self, val, *args):
+    super(Str, self).__init__(*args)
+    self.val = val
+
+  @property
+  def str(self):
+    return '"%s"' % ''.join('\\x%02x' % ord(c) for c in self.val)
+
+class Id(Expression):
+
+  def __init__(self, val, *args):
+    super(Id, self).__init__(*args)
+    self.val = val
+
+  @property
+  def str(self):
+    return self.val
+
+class FunctionCall(Expression):
+
+  def __init__(self, f, fargs, *args):
+    super(FunctionCall, self).__init__(*args)
+    self.f = f
+    self.args = fargs
+
+  @property
+  def str(self):
+    return '(%s(%s))' % (self.f.str, ','.join(a.str for a in self.args))
+
+class PostfixOperation(Expression):
+
+  def __init__(self, expr, op, *args):
+    super(PostfixOperation, self).__init__(*args)
+    self.expr = expr
+    self.op = op
+
+  @property
+  def str(self):
+    return '(%s%s)' % (self.expr.str, self.op)
+
+class Statement(Ast):
+  pass
+
+class Include(Statement):
+
+  def __init__(self, path, *args):
+    super(Include, self).__init__(*args)
+    self.path = path
+
+  @property
+  def forward_declaration(self):
+    return '#include <%s>\n' % (self.path)
+
+  @property
+  def declaration(self):
+    return ''
+
+  @property
+  def implementation(self):
+    return ''
+
+class ExpressionStatement(Statement):
+
+  def __init__(self, expr, *args):
+    super(ExpressionStatement, self).__init__(*args)
+    self.expr = expr
+
+  def str(self, depth):
+    return '\t' * depth + self.expr.str + ';\n'
+
+class Block(Statement):
+
+  def __init__(self, stmts, *args):
+    super(Block, self).__init__(*args)
+    self.stmts = stmts
+
+  def str(self, depth):
+    return '%s{\n%s}\n' % (
+        '\t' * depth,
+        ''.join(stmt.str(depth+1) for stmt in self.stmts))
+
+class FunctionDefinition(Statement):
+
+  def __init__(self, name, type_, body, *args):
+    super(FunctionDefinition, self).__init__(*args)
+    self.name = name
+    self.type_ = type_
+    self.body = body
+
+  @property
+  def forward_declaration(self):
+    return ''
+
+  @property
+  def declaration(self):
+    return self.type_.declare(self.name.str) + ';\n'
+
+  @property
+  def implementation(self):
+    return self.type_.declare(self.name.str) + '\n' + self.body.str(0)
+
+print(Parse(r"""
 ;i 'stdio.h'
 
-;s Datum {
-    ;v x int;
+;f main(argc int, argv **char) int {
+  printf("hi world! %d\n", 5++);
 }
-
-;f main (argc int, argv **char) int {
-    ;v x int = 10;
-    ;v d Datum;
-    d.x = 5 + 525;
-    printf("%d\n", argc);
-    printf("Hello world!\n");
-    printf("x = %d\n", x);
-    printf("d.x = %d\n", d.x);
-    return 0;
-}
-""").all())
+""").all().all)
