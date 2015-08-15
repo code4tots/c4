@@ -246,7 +246,7 @@ class Parse(object):
       return self.ast(Char, self.expect('char').value)
     elif self.at('id'):
       return self.ast(Id, self.expect('id').value)
-    elif self.at('('):
+    elif self.consume('('):
       expr = self.expression()
       self.expect(')')
       return expr
@@ -277,9 +277,11 @@ class Parse(object):
     return expr
 
   def expression02(self):
-    if self.at('++', '--', '+', '-', '!', '~', '*', '&', ';sizeof'):
+    if self.at('++', '--', '+', '-', '!', '~', '*', '&'):
       op = self.gettok().type
       return self.ast(PrefixOperation, op, self.expression02())
+    if self.consume(';sizeof'):
+      return self.ast(SizeOfExpression, self.expression())
     if self.consume('sizeof'):
       self.expect('(')
       type_ = self.type_expression()
@@ -513,6 +515,16 @@ class SizeOfType(Expression):
   def str(self):
     return 'sizeof(%s)' % self.type_.declare('')
 
+class SizeOfExpression(Expression):
+
+  def __init__(self, expr, *args):
+    super(SizeOfExpression, self).__init__(*args)
+    self.expr = expr
+
+  @property
+  def str(self):
+    return 'sizeof(%s)' % self.expr.str
+
 class PostfixOperation(Expression):
 
   def __init__(self, expr, op, *args):
@@ -648,6 +660,7 @@ print(Parse(r"""
   printf("sizeof(int) = %lu\n", sizeof(int));
   printf("sizeof(long) = %lu\n", sizeof(long));
   printf("sizeof(*void) = %lu\n", sizeof(*void));
+  printf(";sizeof(x) = %lu\n", ;sizeof(x));
 
   printf("x = %d\n", x);
   printf("x = %d\n", x++);
