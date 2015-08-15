@@ -5,6 +5,7 @@ STRING_STARTER = ('r"', '"')
 SYMBOLS = tuple(reversed(sorted([
     # special symbols
     ';f', ';i', ';s', ';v',
+    ';sizeof', # For distinguishing sizeof(type) vs sizeof(expression).
     # operators
     '++', '--',
     '*', '/', '%', '+', '-',
@@ -220,7 +221,8 @@ class Parse(object):
       raise self.error('Expected type expression')
 
   def expression(self):
-    return self.expression01()
+    # c4 expressions are similar to C grammar, but is simplified a bit.
+    return self.expression14()
 
   def expression00(self):
     if self.at('int'):
@@ -256,11 +258,108 @@ class Parse(object):
       elif self.at('++', '--'):
         expr = self.ast(PostfixOperation, expr, self.gettok().value)
       elif self.at('.', '->'):
-        op = self.gettok().value
+        op = self.gettok().type
         op += self.expect('id').value
         expr = self.ast(PostfixOperation, expr, op)
       else:
         break
+    return expr
+
+  def expression02(self):
+    if self.at('++', '--', '+', '-', '!', '~', '*', '&', ';sizeof'):
+      op = self.gettok().type
+      return self.ast(PrefixOperation, op, self.expression02())
+    if self.consume('sizeof'):
+      self.expect('(')
+      type_ = self.type_expression()
+      self.expect(')')
+      return self.ast(SizeOfType, type_)
+    return self.expression01()
+
+  def expression03(self):
+    expr = self.expression02()
+    while self.at('*', '/', '%'):
+      op = self.gettok().type
+      expr = self.ast(BinaryOperation, expr, op, self.expression02())
+    return expr
+
+  def expression04(self):
+    expr = self.expression03()
+    while self.at('+', '-'):
+      op = self.gettok().type
+      expr = self.ast(BinaryOperation, expr, op, self.expression03())
+    return expr
+
+  def expression05(self):
+    expr = self.expression04()
+    while self.at('<<', '>>'):
+      op = self.gettok().type
+      expr = self.ast(BinaryOperation, expr, op, self.expression04())
+    return expr
+
+  def expression06(self):
+    expr = self.expression05()
+    while self.at('<', '<=', '>', '>='):
+      op = self.gettok().type
+      expr = self.ast(BinaryOperation, expr, op, self.expression05())
+    return expr
+
+  def expression07(self):
+    expr = self.expression06()
+    while self.at('==', '!='):
+      op = self.gettok().type
+      expr = self.ast(BinaryOperation, expr, op, self.expression06())
+    return expr
+
+  def expression08(self):
+    expr = self.expression07()
+    while self.at('&'):
+      op = self.gettok().type
+      expr = self.ast(BinaryOperation, expr, op, self.expression07())
+    return expr
+
+  def expression09(self):
+    expr = self.expression08()
+    while self.at('^'):
+      op = self.gettok().type
+      expr = self.ast(BinaryOperation, expr, op, self.expression08())
+    return expr
+
+  def expression10(self):
+    expr = self.expression09()
+    while self.at('|'):
+      op = self.gettok().type
+      expr = self.ast(BinaryOperation, expr, op, self.expression09())
+    return expr
+
+  def expression11(self):
+    expr = self.expression10()
+    while self.at('&&'):
+      op = self.gettok().type
+      expr = self.ast(BinaryOperation, expr, op, self.expression10())
+    return expr
+
+  def expression12(self):
+    expr = self.expression11()
+    while self.at('||'):
+      op = self.gettok().type
+      expr = self.ast(BinaryOperation, expr, op, self.expression11())
+    return expr
+
+  def expression13(self):
+    expr = self.expression12()
+    while self.consume('?'):
+      cond = self.expression()
+      self.expect(':')
+      expr = self.ast(ConditionalExpression, expr, cond, self.expression12())
+    return expr
+
+  def expression14(self):
+    expr = self.expression13()
+    while self.at('=', '+=', '-=', '*=', '/=', '%=',
+                  '<<=', '>>=', '&=', '^=', '|='):
+      op = self.gettok().type
+      expr = self.ast(BinaryOperation, expr, op, self.expression13())
     return expr
 
 class Ast(object):
@@ -393,6 +492,16 @@ class FunctionCall(Expression):
   def str(self):
     return '(%s(%s))' % (self.f.str, ','.join(a.str for a in self.args))
 
+class SizeOfType(Expression):
+
+  def __init__(self, type_, *args):
+    super(SizeOfType, self).__init__(*args)
+    self.type_ = type_
+
+  @property
+  def str(self):
+    return 'sizeof(%s)' % self.type_.declare('')
+
 class PostfixOperation(Expression):
 
   def __init__(self, expr, op, *args):
@@ -403,6 +512,29 @@ class PostfixOperation(Expression):
   @property
   def str(self):
     return '(%s%s)' % (self.expr.str, self.op)
+
+class PrefixOperation(Expression):
+
+  def __init__(self, op, expr, *args):
+    super(PrefixOperation, self).__init__(*args)
+    self.op = op
+    self.expr = expr
+
+  @property
+  def str(self):
+    return '(%s%s)' % (self.op, self.expr.str)
+
+class BinaryOperation(Expression):
+
+  def __init__(self, lhs, op, rhs, *args):
+    super(BinaryOperation, self).__init__(*args)
+    self.lhs = lhs
+    self.op = op
+    self.rhs = rhs
+
+  @property
+  def str(self):
+    return '(%s%s%s)' % (self.lhs.str, self.op, self.rhs.str)
 
 class Statement(Ast):
   pass
@@ -469,6 +601,8 @@ print(Parse(r"""
 ;i 'stdio.h'
 
 ;f main(argc int, argv **char) int {
-  printf("hi world! %d\n", 5);
+  printf("hi world! %d\n", 5 + 12);
+  printf("sizeof(int) = %lu\n", sizeof(int));
+  printf("sizeof(long) = %lu\n", sizeof(long));
 }
 """).all().all)
