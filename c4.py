@@ -509,11 +509,11 @@ class SizeOfType(Expression):
 
   def __init__(self, type_, *args):
     super(SizeOfType, self).__init__(*args)
-    self.type_ = type_
+    self.type = type_
 
   @property
   def str(self):
-    return 'sizeof(%s)' % self.type_.declare('')
+    return 'sizeof(%s)' % self.type.declare('')
 
 class SizeOfExpression(Expression):
 
@@ -636,7 +636,7 @@ class FunctionDefinition(Statement):
   def __init__(self, name, type_, body, *args):
     super(FunctionDefinition, self).__init__(*args)
     self.name = name
-    self.type_ = type_
+    self.type = type_
     self.body = body
 
   @property
@@ -645,11 +645,11 @@ class FunctionDefinition(Statement):
 
   @property
   def declaration(self):
-    return self.type_.declare(self.name.str) + ';\n'
+    return self.type.declare(self.name.str) + ';\n'
 
   @property
   def implementation(self):
-    return self.type_.declare(self.name.str) + '\n' + self.body.str(0)
+    return self.type.declare(self.name.str) + '\n' + self.body.str(0)
 
 print(Parse(r"""
 ;i 'stdio.h'
