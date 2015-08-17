@@ -1,5 +1,6 @@
 import unittest
 
+from . import ast
 from . import parser
 
 
@@ -33,6 +34,19 @@ class ExpressionTest(unittest.TestCase):
             ('int', 5),
         )
     )
+
+
+class AstTest(unittest.TestCase):
+
+  def test_five_plus_five(self):
+    visitor = ast.AstBuilder()
+    parser_ = parser.Parser("5.0 + 5", "<unittest>", visitor)
+    self.assertEqual(
+        parser_.expression(),
+        ast.BinaryOperation(
+            ast.Float(5.0),
+            '+',
+            ast.Int(5)))
 
 
 if __name__ == '__main__':

@@ -127,35 +127,35 @@ class Statement(Ast):
 
 
 class Include(Statement):
-  attributes = ('path')
+  attributes = ('path',)
 
 
 class VariableDeclaration(Statement):
-  attributes = ('name', 'type', 'value')
+  attributes = ('name', 'type', 'value',)
 
 
 class FunctionDefinition(Statement):
-  attributes = ('name', 'type', 'body')
+  attributes = ('name', 'type', 'body',)
 
 
 class Block(Statement):
-  attributes = ('statements')
+  attributes = ('statements',)
 
 
 class ExpressionStatement(Statement):
-  attributes = ('expression')
+  attributes = ('expression',)
 
 
 class StructDefinition(Statement):
-  attributes = ('name', 'bases', 'body')
+  attributes = ('name', 'bases', 'body',)
 
 
 class TemplateFunctionDefinition(Statement):
-  attributes = ('arguments', 'function_definition')
+  attributes = ('arguments', 'function_definition',)
 
 
 class TemplateStructDefinition(Statement):
-  attributes = ('arguments', 'struct_definition')
+  attributes = ('arguments', 'struct_definition',)
 
 
 class Type(Ast):
