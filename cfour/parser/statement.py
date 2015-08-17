@@ -22,6 +22,23 @@ class Parser(object):
       type_ = self.type_expression()
       body = self.statement()
       return self.visitor.function_definition(name, type_, body)
+    elif self.consume(';s'):
+      name = self.visitor.type_id(self.expect('id').value)
+      bases = []
+      while not self.at('{'):
+        bases.append(self.type_expression())
+      body = self.statement()
+      return self.visitor.struct_definition(name, tuple(bases), body)
+    elif self.consume(';t'):
+      args = []
+      while not self.at(';f', ';s'):
+        args.append(self.visitor.type_id(self.expect('id').value))
+      if self.at(';f'):
+        return self.visitor.template_function_definition(tuple(args), self.statement())
+      elif self.at(';s'):
+        return self.visitor.template_struct_definition(tuple(args), self.statement())
+      else:
+        raise SyntaxError(self.peek)
     elif self.consume('{'):
       stmts = []
       while not self.consume('}'):
@@ -92,4 +109,25 @@ class Visitor(object):
     Returns(statement):
       A user defined ast element that represents this expression statement.
     """
+    raise NotImplementedError()
+
+  def struct_definition(self, name, bases, body):
+    """Parser callback for struct definitions.
+
+    Arguments:
+      name(expression): Struct identifier.
+      bases(tuple(type_expression)): Bases for this inheritance.
+      body(statement): Struct body.
+
+    Returns(statement):
+      A user defined ast element that represents this struct definition.
+
+    C4 structs have some syntactic extensions that C structs don't.
+    """
+    raise NotImplementedError()
+
+  def template_function_definition(self, arguments, function_definition):
+    raise NotImplementedError()
+
+  def template_struct_definition(self, arguments, struct_definition):
     raise NotImplementedError()
