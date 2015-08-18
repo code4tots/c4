@@ -24,31 +24,31 @@ Function names are PascalCase.
 
 My Python.sublime-settings look as follows:
 
-{
-    // The number of spaces a tab is considered equal to
-    "tab_size": 2,
+    {
+        // The number of spaces a tab is considered equal to
+        "tab_size": 2,
 
-    // Set to true to insert spaces when tab is pressed
-    "translate_tabs_to_spaces": true,
+        // Set to true to insert spaces when tab is pressed
+        "translate_tabs_to_spaces": true,
 
-    // Disables horizontal scrolling if enabled.
-    // May be set to true, false, or "auto", where it will be disabled for
-    // source code, and otherwise enabled.
-    "word_wrap": true,
-}
+        // Disables horizontal scrolling if enabled.
+        // May be set to true, false, or "auto", where it will be disabled for
+        // source code, and otherwise enabled.
+        "word_wrap": true,
+    }
 
 My Markdown.sublime-settings looks as follows:
 
-{
-    // Disables horizontal scrolling if enabled.
-    // May be set to true, false, or "auto", where it will be disabled for
-    // source code, and otherwise enabled.
-    "word_wrap": true,
+    {
+        // Disables horizontal scrolling if enabled.
+        // May be set to true, false, or "auto", where it will be disabled for
+        // source code, and otherwise enabled.
+        "word_wrap": true,
 
-    // Set to a value other than 0 to force wrapping at that column rather than the
-    // window width
-    "wrap_width": 80,
-}
+        // Set to a value other than 0 to force wrapping at that column rather than the
+        // window width
+        "wrap_width": 80,
+    }
 
 ## Semantic
 
