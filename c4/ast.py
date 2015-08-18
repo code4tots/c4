@@ -23,6 +23,7 @@ Some nodes, like FunctionDeclaration, are inserted by the transformer to make co
 # If you want to change this, you're going to have to modify the tests too.
 TAB = '  '
 
+
 def SanitizeCharacter(c):
   return ('\\n'  if c == '\n' else
           '\\t'  if c == '\t' else

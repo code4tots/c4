@@ -1,0 +1,7 @@
+;i 'stdio.h'
+;i 'stdlib.h'
+
+;f main(argc int, argv **char) int {
+	printf("Hello world!\n");
+	system("pause");
+}
