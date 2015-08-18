@@ -1,1 +1,1 @@
-python -m unittest -v cfour.parser.lex_test cfour.parser_test
+python -m unittest -v c4.ast_test c4.parser_test
