@@ -298,12 +298,26 @@ class PointerType(Type):
 
 
 class ArrayType(Type):
-  attributes = ('pointee', 'count',)
+  attributes = ('type', 'count',)
 
   def Declare(self, declarator):
     if declarator.startswith('*'):
       declarator = '(' + declarator + ')'
-    return self.pointee.Declare(declarator + '[' + self.count + ']')
+    return self.type.Declare(declarator + '[' + self.count + ']')
+
+
+class ConstType(Type):
+  attributes = ('type',)
+
+  def Declare(self, declarator):
+    return 'const ' + self.type.Declare(declarator)
+
+
+class VolatileType(Type):
+  attributes = ('type',)
+
+  def Declare(self, declarator):
+    return 'volatile ' + self.type.Declare(declarator)
 
 
 class FunctionType(Type):

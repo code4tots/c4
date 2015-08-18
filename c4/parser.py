@@ -422,6 +422,10 @@ class Parser(object):
   def TypeExpression(self):
     if self.At('id'):
       return ast.TypeId(self.Expect('id').value)
+    elif self.Consume('const'):
+      return ast.ConstType(self.TypeExpression())
+    elif self.Consume('volatile'):
+      return ast.VolatileType(self.TypeExpression())
     elif self.Consume('*'):
       return ast.PointerType(self.TypeExpression())
     elif self.Consume('['):
