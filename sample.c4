@@ -4,8 +4,4 @@
 ;f main(argc int, argv **char) int {
 	printf("Hello world!\n");
 	printf("5 + 5 = %d\n", 5 + 5);
-
-	# While the program is paused, you can check out sample.c.
-	# If you ran this program using the sampletest.bat script, the script will delete all generated files once it's done.
-	system("pause");
 }
