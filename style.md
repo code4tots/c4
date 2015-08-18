@@ -18,6 +18,8 @@ That said, try to be reasonable about line length. If your line gets ridiculousl
 
 Function names are PascalCase.
 
+An exception to this is when we are subclasses a class that already uses camelCase for its method names. In that case, we stay consistent by using camelCase (this is the case with all unit tests because of unittest.TestCase's method naming conventions).
+
 ### What I see
 
 My Python.sublime-settings look as follows:
