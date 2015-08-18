@@ -44,6 +44,8 @@ class Tree(object):
                        len(args), args))
     for attr, arg in zip(self.attributes, args):
       setattr(self, attr, arg)
+    for annotation in self.annotations:
+      setattr(self, annotation, None)
 
   def NotImplementedError(self):
     return NotImplementedError(type(self).__name__ + ' does not implement this method')
