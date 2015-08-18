@@ -1,6 +1,6 @@
 import unittest
 
-from . import ast
+from . import tree
 from . import parser
 
 
@@ -39,14 +39,14 @@ class ExpressionTest(unittest.TestCase):
 class AstTest(unittest.TestCase):
 
   def test_five_plus_five(self):
-    visitor = ast.AstBuilder()
+    visitor = tree.Builder()
     parser_ = parser.Parser("5.0 + 5", "<unittest>", visitor)
     self.assertEqual(
         parser_.expression(),
-        ast.BinaryOperation(
-            ast.Float(5.0),
+        tree.BinaryOperation(
+            tree.Float(5.0),
             '+',
-            ast.Int(5)))
+            tree.Int(5)))
 
 
 if __name__ == '__main__':
