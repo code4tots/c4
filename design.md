@@ -17,7 +17,6 @@ The c4 package will be composed of three main parts:
  ----------------------------------------------------
  |           |       C4 transpiler                  |
  |           |                                      |
- |           |                                      |
  |           v                                      |
  |      -------------       ------------------      |
  |      | parser.py |       | transformer.py |      |
