@@ -39,6 +39,7 @@ class ParseTest(unittest.TestCase):
 
 
 class CodeGenerationTest(unittest.TestCase):
+
   def test_function_definition(self):
     self.assertEqual(
         parser.Parse("""
