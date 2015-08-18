@@ -429,11 +429,16 @@ class Parser(object):
     elif self.Consume('*'):
       return ast.PointerType(self.TypeExpression())
     elif self.Consume('['):
-      index = ''
       if self.At('int'):
         index = self.GetTok().value
-      self.Expect(']')
-      return ast.ArrayType(self.TypeExpression(), index)
+        self.Expect(']')
+        return ast.ArrayType(self.TypeExpression(), index)
+      else:
+        args = []
+        while not self.Consume(']'):
+          args.append(self.TypeExpression())
+        template_name = self.Expect('id').value
+        return ast.TemplateType(tuple(args), template_name)
     elif self.Consume('('):
       argnames = []
       argtypes = []

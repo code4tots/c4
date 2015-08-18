@@ -34,6 +34,7 @@ def SanitizeCharacter(c):
 
 
 class Tree(object):
+
   def __init__(self, *args):
     if len(args) != len(self.attributes):
       raise TypeError("%s expects %d arguments %s, but found %d arguments %s" %
@@ -48,6 +49,9 @@ class Tree(object):
 
   def __eq__(self, other):
     return type(self) == type(other) and all(getattr(self, attr) == getattr(other, attr) for attr in self.attributes)
+
+  def __repr__(self):
+    return '%s(%s)' % (type(self).__name__, ', '.join(repr(getattr(self, attr)) for attr in self.attributes))
 
 
 class Module(Tree):
@@ -336,3 +340,7 @@ class FunctionType(Type):
     if declarator.startswith('*'):
       declarator = '(' + declarator + ')'
     return self.return_type.Declare(declarator)
+
+
+class TemplateType(Type):
+  attributes = ('arguments', 'name',)

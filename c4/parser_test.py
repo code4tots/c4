@@ -20,6 +20,23 @@ class ParseTest(unittest.TestCase):
         ))
     )
 
+  def test_template_type(self):
+    self.assertEqual(
+        parser.Parse("""
+            ;v y [string string]map;
+        """, '<unittest>'),
+        ast.Module((
+            ast.VariableDeclaration(
+                ast.Id('y'),
+                ast.TemplateType(
+                    (ast.TypeId('string'), ast.TypeId('string'),),
+                    'map',
+                ),
+                None,
+            ),
+        ))
+    )
+
 
 class CodeGenerationTest(unittest.TestCase):
   def test_function_definition(self):
@@ -47,7 +64,6 @@ r"""while (x < 2)
   x++;
 }
 """)
-
 
 
 if __name__ == '__main__':

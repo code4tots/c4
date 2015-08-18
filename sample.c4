@@ -2,6 +2,8 @@
 ;i 'stdlib.h'
 
 ;f main(argc int, argv **char) int {
+  ;v x int = 0;
 	printf("Hello world!\n");
 	printf("5 + 5 = %d\n", 5 + 5);
+  printf("x = %d\n", x);
 }
