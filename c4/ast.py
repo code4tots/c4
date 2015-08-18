@@ -34,6 +34,7 @@ def SanitizeCharacter(c):
 
 
 class Tree(object):
+  annotations = ()
 
   def __init__(self, *args):
     if len(args) != len(self.attributes):
@@ -52,6 +53,12 @@ class Tree(object):
 
   def __repr__(self):
     return '%s(%s)' % (type(self).__name__, ', '.join(repr(getattr(self, attr)) for attr in self.attributes))
+
+  def Copy(self):
+    copy = type(self)(*tuple(getattr(self, attr) for attr in self.attributes))
+    for annotation in self.annotations:
+      setattr(copy, annotation, getattr(self, annotation))
+    return copy
 
 
 class Module(Tree):
