@@ -16,6 +16,10 @@ I hate it when all I do is change the name of something and worry whether it wil
 
 That said, try to be reasonable about line length. If your line gets ridiculously long, try to see if the contents of the line should be split into multiple lines (e.g. if you are enumerating a list of things) or perhaps the logic of the line should be split into multiple parts.
 
+### Naming convention
+
+Function names are PascalCase.
+
 ### What I see
 
 My Python.sublime-settings look as follows:
