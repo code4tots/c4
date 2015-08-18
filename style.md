@@ -6,6 +6,10 @@ For anything not specified here, defualt to PEP8.
 
 I just like it better that way.
 
+Remember pants.
+
+TODO: I remember reading a post somewhere on the internet about how style guides should be treated like wearing pants. If you are in your own house, you can decide on whatever pants policy you like. But if you are in someone else's house and you are a guest, you should respect their pants policy. If I ever find that link, link the above line to that post.
+
 ### No line limit.
 
 Instead I have my editor do word wrap.
