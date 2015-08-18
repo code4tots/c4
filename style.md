@@ -2,8 +2,6 @@
 
 For anything not specified here, defualt to PEP8.
 
-## Syntactic
-
 ### Two spaces for indentation.
 
 I just like it better that way.
@@ -49,11 +47,3 @@ My Markdown.sublime-settings looks as follows:
         // window width
         "wrap_width": 80,
     }
-
-## Semantic
-
-### Inheritance
-
-I get that a lot of people hate multiple inheritance, but here I just use them for mixins. At most one of the base classes should implement an initializer.
-
-Also, it seems to me that for some people composition over inheritance is in vogue. For simple cases, I think composition is more verbose, and inheritance is nice and clean. If this project gets to a point where it would benefit from composition over inheritance, I might refactor at some point. But for now, it seems ok as is.
