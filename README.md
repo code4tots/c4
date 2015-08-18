@@ -20,7 +20,7 @@ In the future, I may support generating separate header and source files. It's n
 
 If you are on 64 bit Windows environment and have Visual Studio 15 installed, you can run
 
-	./sampletest.bat
+	sampletest.bat
 
 to see sample.c4 run.
 
