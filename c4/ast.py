@@ -32,8 +32,18 @@ def SanitizeCharacter(c):
           '\\\'' if c == '\'' else
           c)
 
+class TreeMetaclass(type):
 
-class Tree(object):
+  def __init__(cls, name, bases, dict_):
+    super(TreeMetaclass, cls).__init__(name, bases, dict_)
+    if hasattr(cls, 'attributes'):
+      all_attributes = cls.attributes + cls.annotations
+      for attr in all_attributes:
+        if all_attributes.count(attr) > 1:
+          raise TypeError('Ast class %s has duplicate attribute/annotation %s' % (cls.__name__, attr))
+
+
+class Tree(TreeMetaclass('Tree', (), dict())):
   annotations = ()
 
   def __init__(self, *args):
@@ -72,6 +82,7 @@ class Module(Tree):
 
 
 class Expression(Tree):
+  annotations = Tree.annotations + ('evaltype',)
 
   @property
   def str(self):
@@ -226,7 +237,10 @@ class VariableDeclaration(Statement):
   attributes = ('name', 'type', 'value',)
 
   def Str(self, depth):
-    return TAB * depth + self.type.Declare(self.name.str) + ' = ' + self.value.str + ';\n'
+    vdcl = TAB * depth + self.type.Declare(self.name.str)
+    if self.value is not None:
+      vdcl += ' = ' + self.value.str + ';\n'
+    return vdcl
 
 
 class FunctionDeclaration(Tree):
@@ -289,6 +303,7 @@ class TemplateStructDefinition(Statement):
 
 
 class Type(Tree):
+  annotations = Tree.annotations + ('uid',)
 
   def Declare(self, declarator):
     raise self.NotImplementedError()
